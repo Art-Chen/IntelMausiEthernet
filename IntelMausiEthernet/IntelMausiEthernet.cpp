@@ -101,6 +101,8 @@ static const struct intelDevice deviceTable[] = {
     { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_V14, .device = board_pch_tgp, .deviceName = "I219V14",  .deviceInfo = &e1000_pch_tgp_info },
     { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_LM15, .device = board_pch_tgp, .deviceName = "I219LM15", .deviceInfo = &e1000_pch_tgp_info },
     { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_V15, .device = board_pch_tgp, .deviceName = "I219LM15", .deviceInfo = &e1000_pch_tgp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_RPL_I219_LM22, .device = board_pch_adp, .deviceName = "I219LM22", .deviceInfo = &e1000_pch_adp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_RPL_I219_V22, .device = board_pch_adp, .deviceName = "I219V22", .deviceInfo = &e1000_pch_adp_info },
     { .pciDevId = E1000_DEV_ID_PCH_RPL_I219_LM23, .device = board_pch_adp, .deviceName = "I219LM23", .deviceInfo = &e1000_pch_adp_info },
     { .pciDevId = E1000_DEV_ID_PCH_RPL_I219_V23, .device = board_pch_adp, .deviceName = "I219V23", .deviceInfo = &e1000_pch_adp_info },
     { .pciDevId = E1000_DEV_ID_PCH_ADP_I219_LM16, .device = board_pch_adp, .deviceName = "I219LM16", .deviceInfo = &e1000_pch_adp_info },
@@ -437,8 +439,10 @@ done:
 void IntelMausi::systemWillShutdown(IOOptionBits specifier)
 {
     DebugLog("systemWillShutdown() ===>\n");
-    
-    if ((kIOMessageSystemWillPowerOff | kIOMessageSystemWillRestart) & specifier) {
+
+    /* start() may have failed before the MAC ops were set up: nothing to shut down then. */
+    if (((kIOMessageSystemWillPowerOff | kIOMessageSystemWillRestart) & specifier) &&
+        netif && adapterData.hw.mac.ops.rar_set) {
         /*
          * Enable WoL if the machine is going to power off and WoL from S5
          * is enabled.
@@ -1733,7 +1737,10 @@ bool IntelMausi::intelIdentifyChip()
         }
         id = deviceTable[++i].pciDevId;
     }
-    
+
+	if (!result)
+        IOLog("[IntelMausi]: Unsupported device id 0x%04x, not in deviceTable.\n", pciDeviceData.device);
+
 done:
     return result;
 }
